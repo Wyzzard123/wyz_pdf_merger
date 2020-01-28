@@ -94,7 +94,7 @@ def merge_two_pdfs(input1, input2, output_dir, output_file_name="mergedpdf"):
 def merge_many_pdfs(output_dir, output_file_name="mergedpdf", *inputs):
     '''Merges PDFs according to their order in a list. The PDF will be sent to the output directory (output_dir), which has a default name "mergedpdf.pdf". 
     
-    Make sure to input the file paths for the input and output folders as raw strings.'''
+    Make sure to input the file paths for the input and output folders as raw strings. Returns the destination and any errors.'''
     
     # Check that the output folder exists, otherwise create a new folder.
     check_folder(output_dir)
@@ -104,7 +104,7 @@ def merge_many_pdfs(output_dir, output_file_name="mergedpdf", *inputs):
 
     # This is done first as there may be numerous inputs.
     check_output_file_exists(destination)
-    
+    print(inputs)
     sanitized_inputs = []
     # Check if the input files all exist. To facilitate this, first sanitize the names and add to sanitized inputs. Raise an error once a file does not exist.
 
@@ -113,28 +113,35 @@ def merge_many_pdfs(output_dir, output_file_name="mergedpdf", *inputs):
         sanitized_input = sanitize_input(input)
         check_inputs(sanitized_input)
         sanitized_inputs.append(sanitized_input)
-
     # Create a File Merger.
     merger = PyPDF2.PdfFileMerger()
     
     # Append all files to merger. import_bookmarks is set to False to avoid errors.
+    errors=[]
     for sanitized_input in sanitized_inputs:
-        print(sanitized_input)
-        merger.append(sanitized_input, import_bookmarks=False)
+        try:
+            print(sanitized_input)
+            merger.append(sanitized_input, import_bookmarks=False)
+        except OSError:
+            print(f"OSError: The file {sanitized_input} might be corrupted.")
+            errors.append(f"OSError: The file {sanitized_input} might be corrupted.")
+
+        
     
     # Write to outfile
-    with open(f'{destination}', 'wb') as outfile:
+    with open(f'{destination}', 'ab') as outfile:
         merger.write(outfile)
     print(f"Output file to {destination}")
-    return True
+    return (destination, errors)
 
 def merge_pdfs_from_folder(input_dir, output_dir, output_file_name="mergedpdf"):
-    '''Merges many pdfs from one folder, and simply follows the order they are found in the folder.'''
+    '''Merges many pdfs from one folder, and simply follows the order they are found in the folder. Return the destination folder and any errors encountered.'''
     
-    input_list = [r'{}/{}'.format(input_dir, f) for f in os.listdir(input_dir)]
+    # Regex filter at the end is to make sure only pdfs are merged.
+    input_list = [r'{}/{}'.format(input_dir, f) for f in os.listdir(input_dir) if re.match(r"^.*\.pdf$", f)]
 
-    merge_many_pdfs(output_dir, output_file_name, *input_list)
-    return True
+    destination, errors = merge_many_pdfs(output_dir, output_file_name, *input_list)
+    return (destination, errors)
 
 
 
@@ -143,7 +150,6 @@ def main():
     '''Test scripts.'''
     test_output_dir = 'test_outputs'
     test_output_file = 'File2'
-    # test_input_list = [r'test_inputs\2019.08.13 SPC Script.pdf', r'test_inputs\Madrid Protocol.pdf']
 
     # merge_two_pdfs(test_input_list[0], test_input_list[1], test_output_dir, test_output_file)
 

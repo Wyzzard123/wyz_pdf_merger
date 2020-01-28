@@ -1,3 +1,4 @@
 pdfmerge-env
 test_inputs
 test_outputs
+__pycache__

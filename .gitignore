@@ -2,3 +2,6 @@ pdfmerge-env
 test_inputs
 test_outputs
 __pycache__
+wpdfmerger.exe
+wpdfmerger.zip
+test

@@ -11,7 +11,7 @@ def check_inputs(*inputs):
         if os.path.exists(input):
             continue
         else:
-            raise FileNotFoundError(f"First file {input} does not exist")
+            raise FileNotFoundError(f"File {input} does not exist")
     else:
         return True
 

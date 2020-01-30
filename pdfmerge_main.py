@@ -161,8 +161,8 @@ def sequence_merge(output_folder, output_file, input_files):
     finally:
         sequence_merge_button.configure(state=tk.NORMAL)
 
-def reorder_one(output_folder, output_file, input_file, page_no):
-    """GUI version of merge_many_pdfs."""
+def reorder_one(output_folder, output_file, input_file, page_nos):
+    """GUI version of rearrange_pdf."""
     # Check for required input:
     
     
@@ -178,14 +178,14 @@ def reorder_one(output_folder, output_file, input_file, page_no):
         messagebox.showerror("Error: No Input Files specified", "Choose a PDF to rearrange.")
         return
 
-    if page_no.get() == "":
+    if page_nos.get() == "":
         messagebox.showerror("Error: No Page/Page Range specified", "Choose pages to be kept or reordered. Separate the pages and page ranges with commas. For example, '1,2,4,5-10,3,4'. Writing a range backwards like '10-8' will give you the pages in reverse (10, 9, 8).")
         return
 
     try:
         reorder_button.configure(state=tk.DISABLED)
         input_file = input_file.get()
-        page_list = pdfcompile.make_list_of_pages_from_string(page_no.get())
+        page_list = pdfcompile.make_list_of_pages_from_string(page_nos.get())
         
         destination = pdfcompile.rearrange_pdf(input_file, page_list, output_folder.get(), output_file.get())
     
@@ -206,6 +206,53 @@ def reorder_one(output_folder, output_file, input_file, page_no):
     finally:
         reorder_button.configure(state=tk.NORMAL)
 
+def remove_one(output_folder, output_file, input_file, page_nos):
+    """GUI version of remove_pages_from_pdfs."""
+    # Check for required input:
+    
+    
+    if output_folder.get() == "":
+        messagebox.showerror("Error: No Output Folder specified",
+                             '''Choose a folder where your nW PDF will be located. Try not to copy paste directly into this box if you are using Windows, as the backslashes may lead to issues. Use the 'Output' box instead.''')
+        return
+
+    if output_file.get() == "":
+        messagebox.showerror("Error: No Output File specified", "Type a filename for your PDF with removed pages.")
+        return
+    if input_file.get() == "":
+        messagebox.showerror("Error: No Input Files specified", "Choose a PDF to remove pages from.")
+        return
+
+    if page_nos.get() == "":
+        messagebox.showerror("Error: No Page/Page Range specified", "Choose pages to be removed. Separate the pages and page ranges with commas. For example, '1,2,4,5-10,3,4'. Writing a range backwards like '10-8' will give you the pages in reverse (10, 9, 8).")
+        return
+
+    try:
+        reorder_button.configure(state=tk.DISABLED)
+        input_file = input_file.get()
+        page_list = pdfcompile.make_list_of_pages_from_string(page_nos.get())
+        
+        destination, pages_removed = pdfcompile.remove_pages_from_pdf(input_file, page_list, output_folder.get(), output_file.get())
+    
+    except FileNotFoundError:
+        messagebox.showerror("Error: File Not Found",
+                             f'''Are there backslashes in any address? If so, use the Input button instead of copy pasting a file address directly.''')
+    
+    except FileExistsError:
+        messagebox.showerror("Error: File Already Exists",
+                             f"File already exists. Change the output file name to something else.")
+    except TypeError as e:
+        messagebox.showerror("Error: TypeError", str(e))
+    except IndexError as e:
+        messagebox.showerror("Error: Index Error", "The document does not have the pages you specified. Check the page ranges you have typed.")
+    except ValueError as e:
+        messagebox.showerror("Error: Value Error", str(e))
+    else:
+        messagebox.showinfo("Complete", f"Removed pages {pages_removed} of input file {input_file}, and output file to {destination}.")
+        
+    finally:
+        remove_button.configure(state=tk.NORMAL)
+
 # Create an overarching notebook. This will contain nested tabs.
 nb = ttk.Notebook(main)
 nb.grid(row=0, column=0, columnspan=50, sticky='NESW')
@@ -223,11 +270,45 @@ merge_tab.grid(row=0, column=0, columnspan=50, sticky='NESW')
 merge_tab.rowconfigure(0, weight=1)
 merge_tab.columnconfigure(0, weight=1)
 
+# MERGE_TAB 1: Merge All PDFs in Folder #####################################
+# "f" added to the end of variables here to represent folder.
+folder_merge_tab = ttk.Frame(merge_tab)
+merge_tab.add(folder_merge_tab, text='Merge PDFs in Folder')
 
-# MERGE_TAB 1: Merge 2 PDFs in Sequence #####################################
+# Output folder
+output_folder_label_f = ttk.Label(folder_merge_tab, text="Choose Output Folder:")
+output_folder_label_f.grid(row=0, column=0, sticky='EW')
+output_folder_f = ttk.Entry(folder_merge_tab)
+output_folder_f.grid(row=1, column=0, sticky='EW')
+
+# Output Button
+output_button_f = ttk.Button(folder_merge_tab, text="Output", command=lambda: choose_folder_button(output_folder_f))
+output_button_f.grid(row=1, column=1, sticky='EW')
+
+# Output File
+output_file_label_f = ttk.Label(folder_merge_tab, text="Type Output File Name:")
+output_file_label_f.grid(row=2, column=0, sticky='EW')
+output_file_f = ttk.Entry(folder_merge_tab)
+output_file_f.grid(row=3, column=0, sticky='EW')
+
+# Input folder
+input_folder_label_f = ttk.Label(folder_merge_tab, text="Choose Input Folder:")
+input_folder_label_f.grid(row=4, column=0, sticky='EW')
+input_folder_f = ttk.Entry(folder_merge_tab)
+input_folder_f.grid(row=5, column=0, sticky='EW')
+
+# Input Button
+input_button_f = ttk.Button(folder_merge_tab, text="Input", command=lambda: choose_folder_button(input_folder_f))
+input_button_f.grid(row=5, column=1, sticky='EW')
+
+# Merge all in folder
+folder_merge_button = ttk.Button(folder_merge_tab, text="Merge Input Folder",
+                                      command=lambda: folder_merge(output_folder_f, output_file_f, input_folder_f))
+folder_merge_button.grid(row=6, column=0, padx=(0,10), pady=10, sticky='EW')
+
+# MERGE_TAB 2: Merge 2 PDFs in Sequence #####################################
 # "two" added to the end of variables here to represent 2 PDFs.
 
-# TODO: Right now, without workarounds, this is not very useful. It can also only merge files within the same folder. 
 two_merge_tab = ttk.Frame(merge_tab)
 merge_tab.add(two_merge_tab, text='Merge 2 PDFs', sticky='EW')
 # Output folder
@@ -269,42 +350,6 @@ input_file2_button_two.grid(row=7, column=1, sticky='EW')
 # Merge two in sequence
 two_merge_button = ttk.Button(two_merge_tab, text="Merge 2 Input Files", command=lambda: two_merge(output_folder_two, output_file_two, input_file1_two, input_file2_two))
 two_merge_button.grid(row=8, column=0, padx=(0,10), pady=10, sticky='EW')
-
-# MERGE_TAB 2: Merge All PDFs in Folder #####################################
-# "f" added to the end of variables here to represent folder.
-folder_merge_tab = ttk.Frame(merge_tab)
-merge_tab.add(folder_merge_tab, text='Merge PDFs in Folder')
-
-# Output folder
-output_folder_label_f = ttk.Label(folder_merge_tab, text="Choose Output Folder:")
-output_folder_label_f.grid(row=0, column=0, sticky='EW')
-output_folder_f = ttk.Entry(folder_merge_tab)
-output_folder_f.grid(row=1, column=0, sticky='EW')
-
-# Output Button
-output_button_f = ttk.Button(folder_merge_tab, text="Output", command=lambda: choose_folder_button(output_folder_f))
-output_button_f.grid(row=1, column=1, sticky='EW')
-
-# Output File
-output_file_label_f = ttk.Label(folder_merge_tab, text="Type Output File Name:")
-output_file_label_f.grid(row=2, column=0, sticky='EW')
-output_file_f = ttk.Entry(folder_merge_tab)
-output_file_f.grid(row=3, column=0, sticky='EW')
-
-# Input folder
-input_folder_label_f = ttk.Label(folder_merge_tab, text="Choose Input Folder:")
-input_folder_label_f.grid(row=4, column=0, sticky='EW')
-input_folder_f = ttk.Entry(folder_merge_tab)
-input_folder_f.grid(row=5, column=0, sticky='EW')
-
-# Input Button
-input_button_f = ttk.Button(folder_merge_tab, text="Input", command=lambda: choose_folder_button(input_folder_f))
-input_button_f.grid(row=5, column=1, sticky='EW')
-
-# Merge all in folder
-folder_merge_button = ttk.Button(folder_merge_tab, text="Merge Input Folder",
-                                      command=lambda: folder_merge(output_folder_f, output_file_f, input_folder_f))
-folder_merge_button.grid(row=6, column=0, padx=(0,10), pady=10, sticky='EW')
 
 # MERGE_TAB 3: Merge All PDFs in Sequence #####################################
 # "s" added to the end of variables here to represent sequence.
@@ -386,7 +431,7 @@ input_file_button_ro = ttk.Button(reorder_one_tab, text="Input", command=lambda:
 input_file_button_ro.grid(row=5, column=1, sticky='EW')
 
 # Page Numbers
-page_nos_label_ro = ttk.Label(reorder_one_tab, text="Choose Pages")
+page_nos_label_ro = ttk.Label(reorder_one_tab, text="Arrange Pages/Ranges:")
 page_nos_label_ro.grid(row=6, column=0, sticky='EW')
 page_nos_ro = ttk.Entry(reorder_one_tab)
 page_nos_ro.grid(row=7, column=0, sticky='EW')
@@ -396,6 +441,47 @@ page_nos_ro.grid(row=7, column=0, sticky='EW')
 reorder_button = ttk.Button(reorder_one_tab, text="Reorder PDF", command=lambda: reorder_one(output_folder_ro, output_file_ro, input_file_ro, page_nos_ro))
 reorder_button.grid(row=8, column=0, padx=(0,10), pady=10, sticky='EW')
 
+# REARRANGE_TAB 2: Remove pages from 1 PDF by Page Number #####################################
+# "rm" added to the end of variables here to represent "remove".
+
+remove_tab = ttk.Frame(rearrange_tab)
+rearrange_tab.add(remove_tab, text='Remove Pages', sticky='EW')
+# Output folder
+output_folder_label_rm = ttk.Label(remove_tab, text="Choose Output Folder:")
+output_folder_label_rm.grid(row=0, column=0, sticky='EW')
+output_folder_rm = ttk.Entry(remove_tab)
+output_folder_rm.grid(row=1, column=0, sticky='EW')
+
+# Output Button
+output_button_rm = ttk.Button(remove_tab, text="Output", command=lambda: choose_folder_button(output_folder_rm))
+output_button_rm.grid(row=1, column=1, sticky='EW')
+
+# Output File
+output_file_label_rm = ttk.Label(remove_tab, text="Type Output File Name:")
+output_file_label_rm.grid(row=2, column=0, sticky='EW')
+output_file_rm = ttk.Entry(remove_tab)
+output_file_rm.grid(row=3, column=0, sticky='EW')
+
+# Input file
+input_file_label_rm = ttk.Label(remove_tab, text="Choose Input File:")
+input_file_label_rm.grid(row=4, column=0, sticky='EW')
+input_file_rm = ttk.Entry(remove_tab)
+input_file_rm.grid(row=5, column=0, sticky='EW')
+
+# Input Button
+input_file_button_rm = ttk.Button(remove_tab, text="Input", command=lambda: choose_file_button(input_file_rm))
+input_file_button_rm.grid(row=5, column=1, sticky='EW')
+
+# Page Numbers
+page_nos_label_rm = ttk.Label(remove_tab, text="Remove Pages/Ranges:")
+page_nos_label_rm.grid(row=6, column=0, sticky='EW')
+page_nos_rm = ttk.Entry(remove_tab)
+page_nos_rm.grid(row=7, column=0, sticky='EW')
+
+
+# Reorder one PDF
+remove_button = ttk.Button(remove_tab, text="Remove Pages", command=lambda: remove_one(output_folder_rm, output_file_rm, input_file_rm, page_nos_rm))
+remove_button.grid(row=8, column=0, padx=(0,10), pady=10, sticky='EW')
 
 
 

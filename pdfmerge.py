@@ -72,15 +72,8 @@ def merge_two_pdfs(input1, input2, output_dir, output_file_name="mergedpdf"):
     sanitized_input1 = sanitize_input(input1)
     sanitized_input2 = sanitize_input(input2)
 
-    # Check that the input file exists
+    # Check that the input files exist
     check_inputs(sanitized_input1, sanitized_input2)
-
-    # Create a File Merger.
-    merger = PyPDF2.PdfFileMerger()
-    errors =[]
-    # Append both files to merger. import_bookmarks is set to False to avoid errors. 
-    merger.append(sanitized_input1, import_bookmarks=False)
-    merger.append(sanitized_input2, import_bookmarks=False)
 
     # Check that the output folder exists, otherwise create a new folder. In merge_two_pdfs, this is done later than
     # checking the inputs as there are only two inputs. We can then avoid creating a new directory where there is no
@@ -91,6 +84,15 @@ def merge_two_pdfs(input1, input2, output_dir, output_file_name="mergedpdf"):
     destination = sanitize_file_path(output_dir, output_file_name)
 
     check_output_file_exists(destination)
+
+    # Create a File Merger.
+    merger = PyPDF2.PdfFileMerger()
+    errors =[]
+    # Append both files to merger. import_bookmarks is set to False to avoid errors. 
+    merger.append(sanitized_input1, import_bookmarks=False)
+    merger.append(sanitized_input2, import_bookmarks=False)
+
+    
 
     # Write to outfile
     with open(f'{destination}', 'wb') as outfile:

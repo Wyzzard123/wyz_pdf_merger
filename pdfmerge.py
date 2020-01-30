@@ -69,18 +69,18 @@ def merge_two_pdfs(input1, input2, output_dir, output_file_name="mergedpdf"):
     """Simply merges two given PDFs together, with input1 first and input2 second. The PDF will be sent to the output
     directory (output_dir), which has a default name "mergedpdf.pdf". """
 
-    input1 = sanitize_input(input1)
-    input2 = sanitize_input(input2)
+    sanitized_input1 = sanitize_input(input1)
+    sanitized_input2 = sanitize_input(input2)
 
     # Check that the input file exists
-    check_inputs(input1, input2)
+    check_inputs(sanitized_input1, sanitized_input2)
 
     # Create a File Merger.
     merger = PyPDF2.PdfFileMerger()
-
-    # Append both files to merger. import_bookmarks is set to False to avoid errors.
-    merger.append(input1, import_bookmarks=False)
-    merger.append(input2, import_bookmarks=False)
+    errors =[]
+    # Append both files to merger. import_bookmarks is set to False to avoid errors. 
+    merger.append(sanitized_input1, import_bookmarks=False)
+    merger.append(sanitized_input2, import_bookmarks=False)
 
     # Check that the output folder exists, otherwise create a new folder. In merge_two_pdfs, this is done later than
     # checking the inputs as there are only two inputs. We can then avoid creating a new directory where there is no
@@ -96,7 +96,7 @@ def merge_two_pdfs(input1, input2, output_dir, output_file_name="mergedpdf"):
     with open(f'{destination}', 'wb') as outfile:
         merger.write(outfile)
     print(f"Output file to {destination}")
-    return True
+    return (destination, errors)
 
 
 def merge_many_pdfs(output_dir, output_file_name="mergedpdf", *inputs):

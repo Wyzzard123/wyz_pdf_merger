@@ -41,10 +41,14 @@ import urllib.request
 import re
 import pdfkit
 import math
+import sys
+
+CURRENT_RECURSION_LIMIT = sys.getrecursionlimit()
+
 
 PATH_TO_WKHTMLTOPDF_EXE = 'C:/Program Files/wkhtmltopdf/bin/wkhtmltopdf.exe'
 
-def gather_links(start_html_page, root_html_page, filter = "prefix", regex_link_filter=r"http(s)?://", attribute='href', html_tag='a'):
+def gather_links(start_html_page, root_html_page, regex_link_filter=r"http(s)?://", attribute='href', html_tag='a'):
     """
     Gathers all the links fitting the required criteria in a list. Takes as arguments: Returns the list.
 
@@ -80,12 +84,12 @@ def gather_links(start_html_page, root_html_page, filter = "prefix", regex_link_
         
         if (newlink:=link.get('href')) not in link_set:
             
-            # If the filter is prefix, we can append the link as is.
-            if filter == "prefix":
+            # If the link begins with http/https:// or www. or has <something>.<something> (ad infinitum for co.uk etc)/, then we can take it to be a full link.
+            if re.match(r"http(s?)://", newlink) or re.match(r"www.", newlink) or re.search(r"(.+)(\.(.+))+/"):
                 new_string = newlink
             
-            # Filter suffix is used when the links we want start with / and is placed after the root_html_page. If so, we will have to append the link that we get from the search to the back of the root_html_page.
-            elif filter == "suffix":
+            # Otherwise, the link is likely truncated, and we must add it to the root_html_page.
+            else:
                 new_string = f"{root_html_page}{newlink}"
             
             links.append(new_string)
@@ -97,13 +101,15 @@ def gather_links(start_html_page, root_html_page, filter = "prefix", regex_link_
 
 
 
-def gather_links_within_links(start_html_page, root_html_page, filter = "prefix", regex_link_filter=r"http(s)?://", attribute='href', html_tag='a', max_depth = 1, current_depth = 0, links=[], link_set=set()):
+def gather_links_within_links(start_html_page, root_html_page,regex_link_filter=r"http(s)?://(?!.*feed\.xml)(?!\#)", attribute='href', html_tag='a', max_depth = 1, current_depth = 0, links=[], link_set=set()):
     """
     Performs gather_links, but also appends to the list every link which meets the same requirements which can be found within each link. In other words, this recursively finds more and more links. Set a recursion limit with max_depth. 
     
     The arguments, current_depth, links and link_set should not generally be modified. These are just to facilitate the recursion.
 
     However, it may be a good idea to reset these every time the function is called, especially if the function is being called multiple times in a row. Otherwise, you may face multiple repeated pages.
+
+    Do not use a slash at the end of the root_html_page name, or the links generated will be invalid.
     """
     # Increase current_depth to prevent us from recursing too far.
     current_depth += 1
@@ -114,19 +120,26 @@ def gather_links_within_links(start_html_page, root_html_page, filter = "prefix"
     links.append(start_html_page)
 
     
-    link_set.update(start_html_page)
+    link_set.add(start_html_page)
+
+    if max_depth > CURRENT_RECURSION_LIMIT:
+        try:
+            sys.setrecursionlimit(max_depth)
+            print(f"Recursion limit changed from {CURRENT_RECURSION_LIMIT} to {max_depth}.")
+        except OverflowError as e:
+            raise(OverflowError, "Max Depth too high. Set your max depth lower. It is unlikely that you need so many recursions anyway. See details:\n\n{e}")
     
     # To notify how far more we have to go based on the max_depth and current_depth.
     print(f"Current depth is {current_depth}. Max Depth is {max_depth}.\nNumber of layers to go is {max_depth - current_depth}.")
     print(links[-1])
 
     # We first gather the links on the page itself.
-    current_links = list(dict.fromkeys(gather_links(start_html_page, root_html_page, filter, regex_link_filter, attribute, html_tag)))
+    current_links = list(dict.fromkeys(gather_links(start_html_page, root_html_page, regex_link_filter, attribute, html_tag)))
 
 
-    links.extend(current_links)
-    links = list(dict.fromkeys(links))
-    link_set.update(current_links)
+    # links.extend(current_links)
+    # links = list(dict.fromkeys(links))
+    # link_set.update(current_links)
     
     # Recursion base case. We set a max_depth to prevent an infinite loop if every single page we go into has additional links.
     if current_depth >= max_depth:
@@ -144,7 +157,7 @@ def gather_links_within_links(start_html_page, root_html_page, filter = "prefix"
             if link not in link_set:
 
                 # Recursive call, replacing start_html_page with link, and keeping all other parameters. 
-                new_links = gather_links_within_links(link, root_html_page, filter, regex_link_filter, attribute, html_tag, max_depth, current_depth, links, link_set)
+                new_links = gather_links_within_links(link, root_html_page, regex_link_filter, attribute, html_tag, max_depth, current_depth, links, link_set)
                 
                 links.extend(new_links)
                 links = list(dict.fromkeys(links))
@@ -201,7 +214,7 @@ def download_as_pdf(link_or_list, file_name="outfile", folder_name=".", config =
                     print(f"\nCreating file: {folder_name}/{file_name}.pdf")
 
                     # Noting down all the links so we can retry downloading them if there are any errors
-                    with open(f"{folder_name}/LINKS_{file_name}.txt", "a") as f:
+                    with open(f"{folder_name}/LINKS_{file_name}.txt", "w") as f:
                         
                         f.write(f"{link_or_list}")
 
@@ -217,7 +230,7 @@ def download_as_pdf(link_or_list, file_name="outfile", folder_name=".", config =
                     counter = 0
                     
                     # Noting down all the links so we can retry downloading them if there are any errors
-                    with open(f"{folder_name}/LINKS_{file_name}.txt", "a") as f:
+                    with open(f"{folder_name}/LINKS_{file_name}.txt", "w") as f:
                     
                         f.write(f"Number of links = {number_of_links}\nSplitting into {max_counter} parts of {part_split} links each.")
                         while counter < max_counter:
@@ -249,12 +262,12 @@ def download_as_pdf(link_or_list, file_name="outfile", folder_name=".", config =
 
                                     pdfkit.from_url(split_link, f'{folder_name}/{new_file_name}.pdf', configuration=config, options=options)
                                 counter += 1
-                            except:
+                            except Exception as e:
                                 # Carries on despite errors so as not to disrupt flow if there are multiple files. In most cases, ProtocolErrors will occur. Comment out and type "raise" here to see more details if needed.
 
-                                print(f"Error for {folder_name}/{file_name}{counter + 1}.pdf.")
+                                print(f"Error for {folder_name}/{file_name}{counter + 1}.pdf: {str(e)}")
 
-                                f.write(f"ERROR for {folder_name}/{file_name}{counter + 1}.pdf.\n\n")
+                                f.write(f"ERROR for {folder_name}/{file_name}{counter + 1}.pdf: {str(e)}\n\n")
 
 
                                 counter += 1
@@ -264,15 +277,16 @@ def download_as_pdf(link_or_list, file_name="outfile", folder_name=".", config =
             
         except FileNotFoundError:
             print(f"FileNotFoundError for {folder_name}/{file_name}.pdf. Very likely to be 'FileNotFoundError: [WinError 206] The filename or extension is too long.' Comment out the try except block in download_as_pdf definition in the relevant module for more details.\n\n")
-        except:
-            print(f"Error for {folder_name}/{file_name}.pdf.\n\n")
+        except Exception as e:
+            print(f"Error for {folder_name}/{file_name}.pdf: {str(e)}\n\n")
             # raise
-        
+        print("Done.")
+
         return True
 
 
 
-def download_all_pdf(start_html_page, root_html_page, file_name="outfile", folder_name=".", filter = "prefix", regex_link_filter=r"http(s)?://", max_depth = 1, attribute='href', html_tag='a', config = pdfkit.configuration(wkhtmltopdf=PATH_TO_WKHTMLTOPDF_EXE), options={'javascript-delay': 1000}, current_depth = 0, links=[], link_set=set()):
+def download_all_pdf(start_html_page, root_html_page, file_name="outfile", folder_name=".",regex_link_filter=r"http(s)?://(?!.*feed\.xml)(?!\#)", max_depth = 1, attribute='href', html_tag='a', config = pdfkit.configuration(wkhtmltopdf=PATH_TO_WKHTMLTOPDF_EXE),  options={"window-status":"ready","run-script":"window.setTimeout(function(){window.status='ready';}, 1000);"}, current_depth = 0, links=[], link_set=set()):
 
     """Writes all links as well as links within those links up to a given recursion max_depth to a PDF file in a given folder name.
     
@@ -284,7 +298,7 @@ def download_all_pdf(start_html_page, root_html_page, file_name="outfile", folde
         print(f"{folder_name}/{file_name}.pdf FAILED")
         return False
 
-    links = gather_links_within_links(start_html_page, root_html_page, filter, regex_link_filter, attribute, html_tag, max_depth, current_depth, links, link_set)
+    links = gather_links_within_links(start_html_page, root_html_page, regex_link_filter, attribute, html_tag, max_depth, current_depth, links, link_set)
 
     
     # KNOWN ERROR: The download_as_pdf function appears to break with a list of more than around 200 links. Usually there is a [WinError206] for the length of the list being too long. Even if this error does not occur, too high a length usually results in the PDF file being unreadable or completely in plaintext. 
@@ -323,7 +337,7 @@ def download_all_pdf(start_html_page, root_html_page, file_name="outfile", folde
         counter = 0
         
         # Noting down all the links for each file so we can retry downloading them if there are any errors
-        with open(f"{folder_name}/LINKS_{file_name}.txt", "a") as f:
+        with open(f"{folder_name}/LINKS_{file_name}.txt", "w") as f:
                         
             f.write(f"Number of links = {number_of_links}\nSplitting into {max_counter} parts of {part_split} links each.")
             # This will be repeated in download_as_pdf in case download_as_pdf is called directly
@@ -347,7 +361,7 @@ def download_all_pdf(start_html_page, root_html_page, file_name="outfile", folde
 
                     print(f"\nCreating file: {folder_name}/{new_file_name}.pdf with links number {start_index + 1} to {end_index}")
 
-                    split_link = links[start_index:end_index]
+                    split_link = links[start_index:(end_index + 1)]
                     
                     f.write(f"Links number: {start_index + 1} to {end_index} \n{split_link}\n")
 
@@ -360,20 +374,24 @@ def download_all_pdf(start_html_page, root_html_page, file_name="outfile", folde
 if __name__ == "__main__":
 
     """In this test, we will download all the pages from Dynatrace's Cloud Foundry documentation. The reason why we have the regex filter the way it is is because all relevant links in this page come in the form of "/support/help/..." rather than "http://...". This is also why we use "filter = 'suffix'"."""
-    
+
     # TEST 
-    start_html_page = 'https://www.dynatrace.com/support/help/technology-support/cloud-platforms/cloud-foundry/'
-    root_html_page = 'https://www.dynatrace.com' 
-    file_name = "Cloud Foundry"
-    file_name2 = "Cloud Foundry"
-    folder_name = "Cloud Platforms"
-    filter = "suffix"
+    start_html_page = 'https://en.wikipedia.org/wiki/Main_Page'
+    root_html_page = 'https://en.wikipedia.org' 
+    file_name = "Wikipedia No English"
+    folder_name = "test-outputs"
+    
+    
 
     # We also do a negative lookahead for feed.xml, as those links are not what we want.
-    regex_link_filter=r"/support/help/technology-support/cloud-platforms/cloud-foundry/(?!.*feed\.xml)"
+
+    # Test with Wikipedia non-English main pages accessible from English Wikipedia main page.
+    regex_link_filter=r"(?<!en\.)(http(s?)://)(.+)\.wikipedia.org/wiki/(?!feed\.xml)(?!\#)"
     attribute='href'
     html_tag='a'
-    max_depth = 100
+    max_depth = 1
     current_depth = 0
 
-    download_all_pdf(start_html_page, root_html_page, file_name, folder_name, filter, regex_link_filter, max_depth, attribute, html_tag)
+    download_all_pdf(start_html_page, root_html_page, file_name, folder_name, regex_link_filter, max_depth, attribute, html_tag, options={"window-status":"ready","run-script":"window.setTimeout(function(){window.status='ready';}, 1000);"})
+
+    

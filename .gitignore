@@ -1,9 +1,11 @@
 pdfmerge-env
 test_inputs
 test_outputs
+test-outputs
 __pycache__
 wpdfmerger.exe
 wpdfmerger.zip
 test
 .vscode
 .idea
+exe

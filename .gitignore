@@ -9,3 +9,6 @@ test
 .vscode
 .idea
 exe
+build
+dist
+*.spec

@@ -580,36 +580,36 @@ rearrange_tab.columnconfigure(0, weight=1)
 reorder_one_tab = ttk.Frame(rearrange_tab)
 rearrange_tab.add(reorder_one_tab, text='Re-Order PDF', sticky='NESW')
 # Output folder
-output_folder_label_da = ttk.Label(reorder_one_tab, text="Choose Output Folder:")
-output_folder_label_da.grid(row=0, column=0, sticky='NESW')
-output_folder_da = ttk.Entry(reorder_one_tab)
-output_folder_da.grid(row=1, column=0, sticky='NESW')
+output_folder_label_ro = ttk.Label(reorder_one_tab, text="Choose Output Folder:")
+output_folder_label_ro.grid(row=0, column=0, sticky='NESW')
+output_folder_ro = ttk.Entry(reorder_one_tab)
+output_folder_ro.grid(row=1, column=0, sticky='NESW')
 
 # Output Button
-output_button_da = ttk.Button(reorder_one_tab, text="Output", command=lambda: choose_folder_button(output_folder_da))
-output_button_da.grid(row=1, column=1, sticky='NESW')
+output_button_ro = ttk.Button(reorder_one_tab, text="Output", command=lambda: choose_folder_button(output_folder_ro))
+output_button_ro.grid(row=1, column=1, sticky='NESW')
 
 # Output File
-output_file_label_da = ttk.Label(reorder_one_tab, text="Type Output File Name:")
-output_file_label_da.grid(row=2, column=0, sticky='NESW')
-output_file_da = ttk.Entry(reorder_one_tab)
-output_file_da.grid(row=3, column=0, sticky='NESW')
+output_file_label_ro = ttk.Label(reorder_one_tab, text="Type Output File Name:")
+output_file_label_ro.grid(row=2, column=0, sticky='NESW')
+output_file_ro = ttk.Entry(reorder_one_tab)
+output_file_ro.grid(row=3, column=0, sticky='NESW')
 
 # Input file
-input_file_label_da = ttk.Label(reorder_one_tab, text="Choose Input File:")
-input_file_label_da.grid(row=4, column=0, sticky='NESW')
-input_file_da = ttk.Entry(reorder_one_tab)
-input_file_da.grid(row=5, column=0, sticky='NESW')
+input_file_label_ro = ttk.Label(reorder_one_tab, text="Choose Input File:")
+input_file_label_ro.grid(row=4, column=0, sticky='NESW')
+input_file_ro = ttk.Entry(reorder_one_tab)
+input_file_ro.grid(row=5, column=0, sticky='NESW')
 
 # Input Button
-input_file_button_da = ttk.Button(reorder_one_tab, text="Input", command=lambda: choose_file_button(input_file_da))
-input_file_button_da.grid(row=5, column=1, sticky='NESW')
+input_file_button_ro = ttk.Button(reorder_one_tab, text="Input", command=lambda: choose_file_button(input_file_ro))
+input_file_button_ro.grid(row=5, column=1, sticky='NESW')
 
 # Page Numbers
-page_nos_label_da = ttk.Label(reorder_one_tab, text="Arrange Pages/Ranges:")
-page_nos_label_da.grid(row=6, column=0, sticky='NESW')
-page_nos_da = ttk.Entry(reorder_one_tab)
-page_nos_da.grid(row=7, column=0, sticky='NESW')
+page_nos_label_ro = ttk.Label(reorder_one_tab, text="Arrange Pages/Ranges:")
+page_nos_label_ro.grid(row=6, column=0, sticky='NESW')
+page_nos_ro = ttk.Entry(reorder_one_tab)
+page_nos_ro.grid(row=7, column=0, sticky='NESW')
 
 
 # Reorder one PDF

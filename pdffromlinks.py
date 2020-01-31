@@ -46,9 +46,32 @@ import sys
 CURRENT_RECURSION_LIMIT = sys.getrecursionlimit()
 
 
-PATH_TO_WKHTMLTOPDF_EXE = 'C:/Program Files/wkhtmltopdf/bin/wkhtmltopdf.exe'
+PATH_TO_WKHTMLTOPDF_EXE = 'wkhtmltopdf/bin/wkhtmltopdf.exe'
 
-def gather_links(start_html_page, root_html_page, regex_link_filter=r"http(s)?://", attribute='href', html_tag='a'):
+def check_integer(input_string):
+    if re.search(r"[^0-9]", input_string):
+        raise ValueError("Input should be an integer.")
+    else:
+        return int(input_string)
+
+def check_and_set_recursion_depth(max_depth):
+    """If the max_depth is lower than the current recursion limit, nothing changes. If the max depth is higher, this function tries to set the recursion depth to the specified max depth. If it fails, it will raise an overflow error early. 200 is added to the max_depth just as a safety buffer."""
+    SAFETY_BUFFER = 200
+
+    # Checking that max_depth is not too close to the maximum number of allowed recursions.
+    if (max_depth + SAFETY_BUFFER) > CURRENT_RECURSION_LIMIT:
+        try:
+            sys.setrecursionlimit(max_depth + SAFETY_BUFFER)
+            print(f"Recursion limit changed from {CURRENT_RECURSION_LIMIT} to {max_depth + SAFETY_BUFFER}.")
+            
+        except OverflowError as e:
+            raise(OverflowError, "Max Depth too high. Set your max depth lower. It is unlikely that you need so many recursions anyway. As a baseline, the default max recursion depth is around 1000. See details:\n\n{e}")
+        else:
+            return (max_depth + SAFETY_BUFFER)
+    else: 
+        return max_depth
+
+def gather_links(start_html_page, root_html_page, regex_link_filter=r"(?!.*feed\.xml)(?!\#)", attribute='href', html_tag='a'):
     """
     Gathers all the links fitting the required criteria in a list. Takes as arguments: Returns the list.
 
@@ -74,34 +97,40 @@ def gather_links(start_html_page, root_html_page, regex_link_filter=r"http(s)?:/
     link_set = set(links)
     
     # We open the start_html_page with urllib.request (urllib2 in Python 2) and store it as html_page
-    html_page = urllib.request.urlopen(start_html_page )
+    html_page = urllib.request.urlopen(start_html_page)
 
     # BeautifulSoup parses the HTML page. 
     soup = BeautifulSoup(html_page, features="html.parser")
     
     # soup.findAll will return a list of all the links (by default found with html_tag='a' and attrs='href': 'http(s)?://)
     for link in soup.findAll(name=html_tag, attrs={attribute: re.compile(regex_link_filter)}):
-        
+        print(link)
         if (newlink:=link.get('href')) not in link_set:
-            
+            print(f"{link} not in link_set")
             # If the link begins with http/https:// or www. or has <something>.<something> (ad infinitum for co.uk etc)/, then we can take it to be a full link.
-            if re.match(r"http(s?)://", newlink) or re.match(r"www.", newlink) or re.search(r"(.+)(\.(.+))+/"):
+            if re.match(r"http(s?)://", newlink) or re.match(r"www.", newlink) or re.search(r"(.+)(\.(.+))+/", newlink):
                 new_string = newlink
             
             # Otherwise, the link is likely truncated, and we must add it to the root_html_page.
             else:
-                new_string = f"{root_html_page}{newlink}"
+                # If the newlink starts with a /, we simply append the page to the root_html_page
+                if re.match(r"/", newlink):
+                    new_string = f"{root_html_page}{newlink}"
+                # Otherwise, we add a slash in the middle
+                else:
+                    new_string = f"{root_html_page}/{newlink}"
             
             links.append(new_string)
             link_set.add(new_string)
-
+        else:
+            print(f"{link} in new_set, moving on")
     return links
 
 
 
 
 
-def gather_links_within_links(start_html_page, root_html_page,regex_link_filter=r"http(s)?://(?!.*feed\.xml)(?!\#)", attribute='href', html_tag='a', max_depth = 1, current_depth = 0, links=[], link_set=set()):
+def gather_links_within_links(start_html_page, root_html_page,regex_link_filter=r"(?!.*feed\.xml)(?!\#)", attribute='href', html_tag='a', max_depth = 1, current_depth = 0, links=[], link_set=set()):
     """
     Performs gather_links, but also appends to the list every link which meets the same requirements which can be found within each link. In other words, this recursively finds more and more links. Set a recursion limit with max_depth. 
     
@@ -122,12 +151,7 @@ def gather_links_within_links(start_html_page, root_html_page,regex_link_filter=
     
     link_set.add(start_html_page)
 
-    if max_depth > CURRENT_RECURSION_LIMIT:
-        try:
-            sys.setrecursionlimit(max_depth)
-            print(f"Recursion limit changed from {CURRENT_RECURSION_LIMIT} to {max_depth}.")
-        except OverflowError as e:
-            raise(OverflowError, "Max Depth too high. Set your max depth lower. It is unlikely that you need so many recursions anyway. See details:\n\n{e}")
+    check_and_set_recursion_depth(max_depth)
     
     # To notify how far more we have to go based on the max_depth and current_depth.
     print(f"Current depth is {current_depth}. Max Depth is {max_depth}.\nNumber of layers to go is {max_depth - current_depth}.")
@@ -172,21 +196,24 @@ def gather_links_within_links(start_html_page, root_html_page,regex_link_filter=
         # See benchmarking done at this link https://www.peterbe.com/plog/
     
 
-def download_as_pdf(link_or_list, file_name="outfile", folder_name=".", config =pdfkit.configuration(wkhtmltopdf=PATH_TO_WKHTMLTOPDF_EXE), options={'javascript-delay': 1000}):
+def download_as_pdf(link_or_list, file_name="outfile", folder_name=".", config =pdfkit.configuration(wkhtmltopdf=PATH_TO_WKHTMLTOPDF_EXE), options={"window-status":"ready","run-script":"window.setTimeout(function(){window.status='ready';}, 1000);","load-error-handling":"ignore"}):
     """Allows us to set the config within this function, create a folder if one does not already exist, and create a new file. Serves as a wrapper around pdfkit.from_url(). Returns False if a file already exists, causing an error, or if the operation is otherwise unsuccessful. Returns True if successful.
     
     'options' -> To pass options to pdfkit"""
-    
+    unexpected_errors = []
+
+
     try:
         os.mkdir(folder_name)
         print(f"Directory, '{folder_name}', created.")
     except FileExistsError:
-        print(f"ERROR: Directory, '{folder_name}', already exists. Attempting to create file...")
+        print(f"Directory, '{folder_name}', already exists. Attempting to create file...")
     
     if os.path.exists(f'{folder_name}/{file_name}.pdf'):
-        print(f"ERROR: '{folder_name}/{file_name}.pdf' already exists.")
+        print(f"'{folder_name}/{file_name}.pdf' already exists.")
         print(f"{folder_name}/{file_name}.pdf FAILED")
         return False
+        raise FileExistsError(f"Output File {folder_name}/{file_name} already exists!")
     else:
         if (type(link_or_list) is not str) and (type(link_or_list) is not list) :
             raise TypeError(f"Input is of type {type(link_or_list)}, but link_or_list should be a string or a list.")
@@ -269,24 +296,32 @@ def download_as_pdf(link_or_list, file_name="outfile", folder_name=".", config =
 
                                 f.write(f"ERROR for {folder_name}/{file_name}{counter + 1}.pdf: {str(e)}\n\n")
 
+                                unexpected_errors.append(e)
+
 
                                 counter += 1
                     
             elif type(link_or_list) == str:
                 pdfkit.from_url(link_or_list, f'{folder_name}/{file_name}.pdf', configuration=config, options=options)
             
-        except FileNotFoundError:
-            print(f"FileNotFoundError for {folder_name}/{file_name}.pdf. Very likely to be 'FileNotFoundError: [WinError 206] The filename or extension is too long.' Comment out the try except block in download_as_pdf definition in the relevant module for more details.\n\n")
+        except FileNotFoundError as e:
+            if "WinError 206" in str(e):
+                print(f"FileNotFoundError for {folder_name}/{file_name}.pdf. 'FileNotFoundError: [WinError 206] There are too many links or the filenames are too long.")
+                raise FileNotFoundError(f"FileNotFoundError for {folder_name}/{file_name}.pdf. 'FileNotFoundError: [WinError 206] There are too many links or the filenames are too long.")
+            else:
+                print(str(e))
+                raise FileNotFoundError(str(e))
+            
         except Exception as e:
             print(f"Error for {folder_name}/{file_name}.pdf: {str(e)}\n\n")
-            # raise
+            
         print("Done.")
 
         return True
 
 
 
-def download_all_pdf(start_html_page, root_html_page, file_name="outfile", folder_name=".",regex_link_filter=r"http(s)?://(?!.*feed\.xml)(?!\#)", max_depth = 1, attribute='href', html_tag='a', config = pdfkit.configuration(wkhtmltopdf=PATH_TO_WKHTMLTOPDF_EXE),  options={"window-status":"ready","run-script":"window.setTimeout(function(){window.status='ready';}, 1000);"}, current_depth = 0, links=[], link_set=set()):
+def download_all_pdf(start_html_page, root_html_page="", file_name="outfile", folder_name=".",regex_link_filter=r"http(s)?://(?!.*feed\.xml)(?!\#)", max_depth = 1, attribute='href', html_tag='a', config = pdfkit.configuration(wkhtmltopdf=PATH_TO_WKHTMLTOPDF_EXE),  options={"window-status":"ready","run-script":"window.setTimeout(function(){window.status='ready';}, 1000);","load-error-handling":"ignore"}, current_depth = 0, links=[], link_set=set()):
 
     """Writes all links as well as links within those links up to a given recursion max_depth to a PDF file in a given folder name.
     
@@ -296,7 +331,13 @@ def download_all_pdf(start_html_page, root_html_page, file_name="outfile", folde
     if os.path.exists(f'{folder_name}/{file_name}.pdf'):
         print(f"ERROR: '{folder_name}/{file_name}.pdf' already exists.")
         print(f"{folder_name}/{file_name}.pdf FAILED")
+        raise FileExistsError(f"ERROR: '{folder_name}/{file_name}.pdf' already exists. {folder_name}/{file_name}.pdf FAILED.")
         return False
+    if root_html_page == "":
+        # If there is no entry for the root_html_page, the root will be the portion of the start_html_page before the slash.
+        if match := (re.match(r"((http(s?)://)([A-Za-z0-9]+)((\.)([A-Za-z0-9]+))+)", start_html_page)):
+            root_html_page = match.group(1)
+        
 
     links = gather_links_within_links(start_html_page, root_html_page, regex_link_filter, attribute, html_tag, max_depth, current_depth, links, link_set)
 
@@ -378,7 +419,7 @@ if __name__ == "__main__":
     # TEST 
     start_html_page = 'https://en.wikipedia.org/wiki/Main_Page'
     root_html_page = 'https://en.wikipedia.org' 
-    file_name = "Wikipedia No English"
+    file_name = "Wikipedia One English"
     folder_name = "test-outputs"
     
     
@@ -389,9 +430,9 @@ if __name__ == "__main__":
     regex_link_filter=r"(?<!en\.)(http(s?)://)(.+)\.wikipedia.org/wiki/(?!feed\.xml)(?!\#)"
     attribute='href'
     html_tag='a'
-    max_depth = 1
+    max_depth = 0
     current_depth = 0
 
-    download_all_pdf(start_html_page, root_html_page, file_name, folder_name, regex_link_filter, max_depth, attribute, html_tag, options={"window-status":"ready","run-script":"window.setTimeout(function(){window.status='ready';}, 1000);"})
+    download_all_pdf(start_html_page, root_html_page, file_name, folder_name, regex_link_filter, max_depth, attribute, html_tag, options={"window-status":"ready","run-script":"window.setTimeout(function(){window.status='ready';}, 1000);","load-error-handling":"ignore"})
 
     

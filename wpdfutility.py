@@ -10,6 +10,8 @@ import pdffromlinks
 import pdfcompile
 import webbrowser
 import re
+from GUI_layout import show, Options, Coordinates as XY, LabelsEntriesButtons
+# import LEB 
 
 main = tk.Tk()
 main.title("Wyz's PDF Utility")
@@ -427,10 +429,93 @@ def dl_list(output_folder, output_file, html_page_list):
         
     finally:
         dl_list_button.configure(state=tk.NORMAL)
+## 1 Feb 2019: Redo UI. Have Output Folders and Output Files on top. The rest of the Input appears depending on the option chosen in a dropdown menu.
+
+# Layout is contained in GUI_layout.py, from the Coordinates class, which uses named tuples x and y to represent row and column respectively. The Coordinates class is imported as XY for easier editing.
+
+        
+
+# Output folder
+output_folder_label = ttk.Label(main, text="Choose Output Folder:")
+output_folder_label.grid(row=XY.output_folder_label.x, column=XY.output_folder_label.y, sticky='NESW')
+output_folder = ttk.Entry(main)
+output_folder.grid(row=XY.output_folder.x, column=XY.output_folder.y, sticky='NESW')
+
+# Output Button
+output_button = ttk.Button(main, text="Output", command=lambda: choose_folder_button(output_folder))
+output_button.grid(row=XY.output_button.x, column=XY.output_button.y, sticky='NESW')
+
+# Output File
+output_file_label = ttk.Label(main, text="Type Output File Name:")
+output_file_label.grid(row=XY.output_file_label.x, column=XY.output_file_label.y, sticky='NESW')
+output_file = ttk.Entry(main)
+output_file.grid(row=XY.output_file.x, column=XY.output_file.y, sticky='NESW')
+
+
+options = list(Options.option_dict.keys())
+chosen_option = tk.StringVar()
+chosen_option.set(options[1])
+
+LEB = LabelsEntriesButtons(main)
+
+def show_gui(choice):
+    """Show relevant options only"""
+    chosen_option.set(choice)
+    show(main, chosen_option.get(), LEB)
+
+show_gui(chosen_option.get())
+
+dropdown = ttk.OptionMenu(main, chosen_option, options[1], *options, command=show_gui)
+
+dropdown.grid(row=XY.dropdown.x,column=XY.dropdown.y, sticky='NESW')
+
+#TODO Make text in dropdown left-aligned or justified
+
+#TODO Hide these until dropdown chosen
+
+## INPUTS BELOW OUTPUTFILES
+# # Input folder
+# input_folder_label = ttk.Label(main, text="Choose Input Folder:")
+# input_folder_label.grid(row=XY.input_folder_label.x, column=XY.input_folder_label.y, sticky='NESW')
+# input_folder = ttk.Entry(main)
+# input_folder.grid(row=XY.input_folder.x, column=XY.input_folder.y, sticky='NESW')
+
+# # Input Folder Button
+# input_folder_button = ttk.Button(main, text="Input", command=lambda: choose_folder_button(input_folder))
+# input_folder_button.grid(row=XY.input_folder_button.x, column=XY.input_folder_button.y, sticky='NESW')
+
+
+# Input File
+input_file_label = ttk.Label(main, text="Choose Input File:")
+input_file_label.grid(row=XY.input_file_label.x, column=XY.input_file_label.y, sticky='NESW')
+input_file = ttk.Entry(main)
+input_file.grid(row=XY.input_file.x, column=XY.input_file.y, sticky='NESW')
+
+# Input File Button
+input_file_button = ttk.Button(main, text="Input", command=lambda: choose_file_button(input_file))
+
+input_file_button.grid(row=XY.input_file_button.x, column=XY.input_file_button.y, sticky='NESW')
+
+
+# Page Numbers
+page_nos_label = ttk.Label(main, text="Pages/Ranges:")
+page_nos_label.grid(row=XY.page_nos_label.x, column=XY.page_nos_label.y, sticky='NESW')
+page_nos = ttk.Entry(main)
+page_nos.grid(row=XY.page_nos.x, column=XY.page_nos.y, sticky='NESW')
+
+# TODO Implement input multiple files in a user-friendly way
+
+
+
+
+
+
+
+
 
 # Create an overarching notebook. This will contain nested tabs.
 nb = ttk.Notebook(main)
-nb.grid(row=0, column=0, columnspan=50, sticky='NESW')
+nb.grid(row= 333, column=0, columnspan=50, sticky='NESW')
 nb.rowconfigure(0, weight=1)
 nb.columnconfigure(0, weight=1)
 
